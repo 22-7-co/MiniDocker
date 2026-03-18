@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 
 	log "github.com/sirupsen/logrus"
@@ -64,17 +65,121 @@ func NewParentProcess(tty bool, containerName, rootUrl, mntUrl, volume string, e
 }
 
 func newWorkSpace(rootUrl, mntUrl, volume, containerName string) error {
-	// if err := createReadOnlyLayer(rootUrl); err != nil {
-	// 	return err
-	// }
-	// if err := createWriteLayer(containerName); err != nil {
-	// 	return err
-	// }
-	// if err := createMountPoint(rootUrl, mntUrl, containerName); err != nil {
-	// 	return err
-	// }
-	// if err := mountExtractVolume(mntUrl, volume, containerName); err != nil {
-	// 	return err
-	// }
+	if err := createReadOnlyLayer(rootUrl); err != nil {
+		return err
+	}
+	if err := createWriteLayer(containerName); err != nil {
+		return err
+	}
+	if err := createMountPoint(rootUrl, mntUrl, containerName); err != nil {
+		return err
+	}
+	if err := mountExtractVolume(mntUrl, volume, containerName); err != nil {
+		return err
+	}
 	return nil
+}
+
+// 创建一个名为busybox 的文件夹作为容器唯一只读层
+func createReadOnlyLayer(busyboxUrl string) error {
+	exist, err := pathExist(busyboxUrl)
+	if err != nil {
+		return err
+	}
+	if !exist {
+		return fmt.Errorf("busy dir don't exist: %s", busyboxUrl)
+	}
+	return nil
+}
+
+func mountExtractVolume(mntUrl, volume, containerName string) error {
+	if volume == "" {
+		return nil
+	}
+	volumeUrls := strings.Split(volume, ":")
+	length := len(volumeUrls)
+	if length != 2 || volumeUrls[0] == "" || volumeUrls[1] == "" {
+		return fmt.Errorf("volume parameter input is invalid")
+	}
+	return mountVolume(mntUrl+containerName+"/", volumeUrls)
+}
+
+func mountVolume(mntUrl string, volumeUrls []string) error {
+	// 如果目录不存在，创建目录
+	parentUrl := volumeUrls[0]
+	exist, err := pathExist(parentUrl)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if !exist {
+		// MkdirAll 递归创建多级目录
+		if err := os.MkdirAll(parentUrl, 0777); err != nil {
+			return fmt.Errorf("create parent dir failed: %v", err)
+		}
+	}
+
+	// 容器内创建挂载点
+	containerUrl := mntUrl + volumeUrls[1]
+	if err := os.MkdirAll(containerUrl, 0777); err != nil {
+		return fmt.Errorf("mkdir container volume err: %v", err)
+	}
+
+	// 把宿主机文件目录挂载到容器
+	dirs := "dirs=" + parentUrl
+	cmd := exec.Command("mount", "-t", "aufs", "-o", dirs, "none", containerUrl)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("mount volume err: %v", err)
+	}
+	return nil
+}
+
+// 创建一个名为writeLayer 的文件夹作为容器唯一可写层
+func createWriteLayer(containerName string) error {
+	writeUrl := RootUrl + "/witeLayer/" + containerName + "/"
+	exist, err := pathExist(writeUrl)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if !exist {
+		if err := os.MkdirAll(writeUrl, 0777); err != nil {
+			return fmt.Errorf("create write layer failed: %v", err)
+		}
+	}
+	return nil
+}
+
+func createMountPoint(rootUrl, mntUrl, containerName string) error {
+	// 创建一个名为mnt 的文件夹作为容器唯一挂载点
+	mountPath := mntUrl + containerName + "/"
+	log.Infof("root url: %s, mutUrl: $s, mountPath: %s", rootUrl, mntUrl, mountPath)
+	exist, err := pathExist(mountPath)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if !exist {
+		if err := os.MkdirAll(mountPath, 0777); err != nil {
+			return fmt.Errorf("create mount point failed: %v", err)
+		}
+	}
+	// 将 writeLayer, busybox 挂载到 mnt
+	dirs := "dirs=" + RootUrl + "/writeLayer/" + rootUrl
+	cmd := exec.Command("mount", "-t", "aufs", "-o", dirs, "none", mountPath)
+	log.Infof(cmd.String())
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("mnt dir err: %v", err)
+	}
+	return nil
+}
+
+func pathExist(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	return false, err
 }
