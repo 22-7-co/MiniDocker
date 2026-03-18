@@ -15,8 +15,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Run(tty string, cmdStr string, cmdArgs []string, memLimit string, cpuset string, cpuShare string, volume string, detach string, name string, envs []string, net string, ports []string) {
-	id, containerName := getContainerName(containerName)
+func Run(tty bool, cmdStr string, cmdArgs []string, memLimit string, cpuset string, cpuShare string, volume string, detach string, name string, envs []string, net string, ports []string) {
+	id, containerName := getContainerName(name)
 
 	mntUrl := container.RootUrl + "/mnt/"
 	rootUrl := container.BusyboxPath
