@@ -11,7 +11,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const ipamDefaultAllocatorPath = "/var/run/mydocker/network/ipam/subnet.json"
+// const ipamDefaultAllocatorPath = "/var/run/mydocker/network/ipam/subnet.json"
+const ipamDefaultAllocatorPath = "/tmp/mydocker-test/network/ipam/subnet.json"
 
 // IPAM 存放IP地址分配信息
 type IPAM struct {
@@ -35,10 +36,10 @@ func (ipam *IPAM) load() error {
 		return err
 	}
 	subnetConfigFile, err := os.Open(ipam.SubnetAllocatorPath)
-	defer subnetConfigFile.Close()
 	if err != nil {
 		return err
 	}
+	defer subnetConfigFile.Close()
 	subnetJson := make([]byte, 2000)
 	n, err := subnetConfigFile.Read(subnetJson)
 	if err != nil {
@@ -65,11 +66,12 @@ func (ipam *IPAM) dump() error {
 	}
 
 	subnetConfigFile, err := os.OpenFile(ipam.SubnetAllocatorPath,
-		os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0644)
-	defer subnetConfigFile.Close()
+		os.O_TRUNC|os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
+		log.Errorf("70 error!!!!!!!!!")
 		return err
 	}
+	defer subnetConfigFile.Close()
 
 	ipamConfigJson, err := json.Marshal(ipam.Subnets)
 	if err != nil {
