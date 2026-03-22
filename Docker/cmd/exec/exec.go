@@ -9,9 +9,9 @@ import (
 )
 
 var ExecCmd = &cobra.Command{
-	Use:   "commit CONTAINER",
-	Short: "commit a container into image",
-	Args:  cobra.ExactArgs(1),
+	Use:   "exec container command [args...]",
+	Short: "Run a command in a running container",
+	Args:  cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		if os.Getenv(runtime.EnvExecPid) != "" {
 			log.Infof("pid callback pid %d", os.Getgid())

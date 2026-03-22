@@ -22,6 +22,14 @@ type IPAM struct {
 	Subnets *map[string]string
 }
 
+func NewIPAM() *IPAM {
+	ipam := &IPAM{
+		Subnets: &map[string]string{},
+	}
+	_ = ipam.load()
+	return ipam
+}
+
 // 初始化一个IPAMd对象
 var ipAllocator = &IPAM{
 	SubnetAllocatorPath: ipamDefaultAllocatorPath,
@@ -40,14 +48,13 @@ func (ipam *IPAM) load() error {
 		return err
 	}
 	defer subnetConfigFile.Close()
-	subnetJson := make([]byte, 2000)
-	n, err := subnetConfigFile.Read(subnetJson)
+	data, err := os.ReadFile(ipam.SubnetAllocatorPath)
 	if err != nil {
 		return err
 	}
-
-	err = json.Unmarshal(subnetJson[:n], ipam.Subnets)
+	err = json.Unmarshal(data, ipam.Subnets)
 	if err != nil {
+		// fmt.Println(string(data))
 		return fmt.Errorf("dump allocation info err: %v", err)
 	}
 	log.Infof("load ipam file from: %s", subnetConfigFile.Name())
@@ -87,16 +94,21 @@ func (ipam *IPAM) dump() error {
 
 // 在网段中分配一个可用的IP地址
 func (ipam *IPAM) Allocate(subnet *net.IPNet) (ip net.IP, err error) {
+	if subnet == nil || subnet.IP == nil || subnet.Mask == nil {
+		return nil, fmt.Errorf("invalid subnet")
+	}
+
 	// 存储网段中地址分配信息的数组
-	ipam.Subnets = &map[string]string{}
+	if ipam.Subnets == nil {
+		ipam.Subnets = &map[string]string{}
+	}
 
 	//从文件中加载已经分配了的网络信息
-	err = ipam.load()
-	if err != nil {
+	if err = ipam.load(); err != nil {
 		return nil, fmt.Errorf("load subnet file err: %v", err)
 	}
 
-	// net.ipnet.nask.size() 返回网段的子网掩码的总长度和网段前面的固定位的长度
+	// net.ipnet.mask.size() 返回网段的子网掩码的总长度和网段前面的固定位的长度
 	// 比如 127.0.0.0/8 网段的子网掩码是 255.0.0.0
 	// 返回的是前面255所对应的位数和总位数，即8和24
 	one, size := subnet.Mask.Size()

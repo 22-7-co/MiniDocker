@@ -25,6 +25,7 @@ var RunCmd = &cobra.Command{
 		envs, _ := cmd.Flags().GetStringSlice("e")
 		net, _ := cmd.Flags().GetString("net")
 		ports, _ := cmd.Flags().GetStringSlice("p")
+		interactive, _ := cmd.Flags().GetBool("interactive")
 
 		resConfig := &subsystem.ResourceConfig{
 			MemoryLimit: mem,
@@ -32,7 +33,7 @@ var RunCmd = &cobra.Command{
 			CpuSet:      cpuset,
 		}
 
-		runtime.Run(tty, detach, args, resConfig, volume, name, envs, net, ports)
+		runtime.Run(tty, detach, args, resConfig, volume, name, envs, net, ports, interactive)
 		return nil
 	},
 }
@@ -48,4 +49,6 @@ func init() {
 	RunCmd.Flags().StringSliceP("e", "", nil, "set environment")
 	RunCmd.Flags().String("net", "", "container network")
 	RunCmd.Flags().StringSliceP("p", "", nil, "port mapping")
+	RunCmd.Flags().BoolP("interactive", "i", false, "Keep STDIN open even if not attached")
+
 }

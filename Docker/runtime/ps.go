@@ -24,7 +24,11 @@ func ListContainers() error {
 		containers = append(containers, tmpContainer)
 	}
 
-	// w :=
+	if len(files) == 0 {
+		fmt.Println("No containers running")
+		return nil
+	}
+
 	return nil
 }
 

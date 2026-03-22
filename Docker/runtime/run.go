@@ -24,7 +24,7 @@ import (
 发送 init 参数，调用我们写的 init 方法，去初始化容器的一些资源
 */
 func Run(tty, detach bool, cmdArray []string, config *subsystem.ResourceConfig, volume, containerName string,
-	envSlice []string, nw string, portMapping []string) {
+	envSlice []string, nw string, portMapping []string, interactive bool) {
 	id, containerName := getContainerName(containerName)
 
 	mntUrl := container.RootUrl + "/mnt/"

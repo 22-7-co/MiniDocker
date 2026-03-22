@@ -7,10 +7,12 @@ import (
 )
 
 var networkListCmd = &cobra.Command{
-	Use:   "commit CONTAINER",
-	Short: "commit a container into image",
-	Args:  cobra.ExactArgs(1),
+	Use:   "list ",
+	Short: "list all networks",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := network.Init(); err != nil {
+			return err
+		}
 		return network.ListNetwork()
 	},
 }

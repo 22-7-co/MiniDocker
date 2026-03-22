@@ -7,10 +7,22 @@ import (
 )
 
 var networkCreateCmd = &cobra.Command{
-	Use:   "commit CONTAINER",
-	Short: "commit a container into image",
+	Use:   "create  [network-name]",
+	Short: "create a network",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return network.CreateNetwork(args[0], args[1], args[2])
+		driver, _ := cmd.Flags().GetString("driver")
+		subnet, _ := cmd.Flags().GetString("subnet")
+		name := args[0]
+
+		if err := network.Init(); err != nil {
+			return err
+		}
+		return network.CreateNetwork(driver, subnet, name)
 	},
+}
+
+func init() {
+	networkCreateCmd.Flags().String("driver", "bridge", "network dirver(e.g. bridge, macvlan)")
+	networkCreateCmd.Flags().String("subnet", "172.18.0.0/16", "subnet in CIDR format (e.g. 172.20.0.0/16)")
 }
