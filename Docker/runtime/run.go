@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"math/rand"
 	cgroup "mini-docker/Docker/Cgroup"
+	"mini-docker/Docker/Cgroup/subsystem"
 	"mini-docker/Docker/container"
+	"mini-docker/Docker/network"
 	"os"
 	"os/exec"
 	"strconv"
@@ -15,12 +17,19 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Run(tty bool, cmdStr string, cmdArgs []string, memLimit string, cpuset string, cpuShare string, volume string, detach string, name string, envs []string, net string, ports []string) {
-	id, containerName := getContainerName(name)
+// Run
+/*
+这里的Start方法是真正开始前面创建好的 command 的调用，
+它首先会clone出来一个namespace隔离的进程，然后在子进程中，调用/proc/self/exe,也就是自己调用自己
+发送 init 参数，调用我们写的 init 方法，去初始化容器的一些资源
+*/
+func Run(tty, detach bool, cmdArray []string, config *subsystem.ResourceConfig, volume, containerName string,
+	envSlice []string, nw string, portMapping []string) {
+	id, containerName := getContainerName(containerName)
 
 	mntUrl := container.RootUrl + "/mnt/"
 	rootUrl := container.BusyboxPath
-	parent, writePipe := container.NewParentProcess(tty, containerName, rootUrl, mntUrl, volume, envs)
+	parent, writePipe := container.NewParentProcess(tty, containerName, rootUrl, mntUrl, volume, envSlice)
 
 	if err := parent.Start(); err != nil {
 		log.Errorf("start parent process err: %v", err)
@@ -30,7 +39,7 @@ func Run(tty bool, cmdStr string, cmdArgs []string, memLimit string, cpuset stri
 	}
 
 	// 记录容器信息
-	containerName, err := recordContainerInfo(parent.Process.Pid, cmdArgs, id, containerName)
+	containerName, err := recordContainerInfo(parent.Process.Pid, cmdArray, id, containerName)
 	if err != nil {
 		log.Error(err)
 		return
@@ -43,10 +52,30 @@ func Run(tty bool, cmdStr string, cmdArgs []string, memLimit string, cpuset stri
 		return
 	}
 
-	// if nw != "" {
-	// 	// 定义网络
-	// 	_ = network.Init()
-	// }
+	if nw != "" {
+		// 定义网络
+		_ = network.Init()
+		containerInfo := &container.ContainerInfo{
+			ID:           id,
+			Pid:          strconv.Itoa(parent.Process.Pid),
+			Name:         containerName,
+			PortMappings: portMapping,
+		}
+		if err := network.Connect(nw, containerInfo); err != nil {
+			log.Errorf("connect network err: %v", err)
+			return
+		}
+	}
+
+	sendInitCommand(cmdArray, writePipe)
+
+	log.Infof("parent  process run")
+	if !detach {
+		_ = parent.Wait()
+		deleteWorkSpace(rootUrl, mntUrl, volume, containerName)
+		deleteContainerInfo(containerName)
+	}
+	os.Exit(-1)
 }
 
 func deleteContainerInfo(containerName string) {
@@ -129,7 +158,7 @@ func sendInitCommand(arrary []string, writePipe *os.File) {
 
 func deleteWorkSpace(rootUrl, mntUrl, volume, containerName string) {
 	umountVolume(mntUrl, volume, containerName)
-	deleteMountPoint(mntUrl, containerName+"/")
+	deleteMountPoint(mntUrl + containerName + "/")
 	deleteWriteLayer(rootUrl, containerName)
 }
 

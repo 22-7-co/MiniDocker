@@ -1,94 +1,51 @@
 package run
 
 import (
-	"log"
+	"mini-docker/Docker/Cgroup/subsystem"
 	"mini-docker/Docker/runtime"
 
 	"github.com/spf13/cobra"
 )
 
-var (
-	flagTty      bool
-	flagMemory   string
-	flagCpuset   string
-	flagCpuShare string
-	flagVolume   string // -v 通常只允許一次，如需多次請改 StringSlice
-	flagDetach   bool
-	flagName     string
-	flagEnvs     []string // -e 可重复
-	flagNetwork  string
-	flagPorts    []string // -p 可重复
-)
-
-var RunCommand = &cobra.Command{
-	Use:   "run [command] [args...]",
+var RunCmd = &cobra.Command{
+	Use:   "run [flags] [command] [args...]",
 	Short: `Create a container with namespace and cgroups limit mydocker run -ti [command]`,
 	Long:  `mydocker run -ti --name mycontainer -v /host:/container -p 8080:80 nginx`,
 	Example: `  mydocker run -ti --name web -p 8080:80 nginx
   mydocker run -d --mem 512m --cpuset 0-1 busybox sleep 1000`,
 	Args: cobra.MinimumNArgs(1), // 至少有一个参数
-	Run: func(cmd *cobra.Command, args []string) {
-		cmdStr := args[0]
-		cmdArgs := args[1:]
+	RunE: func(cmd *cobra.Command, args []string) error {
+		tty, _ := cmd.Flags().GetBool("ti")
+		detach, _ := cmd.Flags().GetBool("d")
+		mem, _ := cmd.Flags().GetString("mem")
+		cpushare, _ := cmd.Flags().GetString("cpushare")
+		cpuset, _ := cmd.Flags().GetString("cpuset")
+		volume, _ := cmd.Flags().GetString("v")
+		name, _ := cmd.Flags().GetString("name")
+		envs, _ := cmd.Flags().GetStringSlice("e")
+		net, _ := cmd.Flags().GetString("net")
+		ports, _ := cmd.Flags().GetStringSlice("p")
 
-		tty := flagTty
-		memLimit := flagMemory
-		cpuset := flagCpuset
-		cpuShare := flagCpuShare
-		volume := flagVolume
-		detach := flagDetach
-		name := flagName
-		envs := flagEnvs
-		net := flagNetwork
-		ports := flagPorts
-
-		if err := runtime.Run(tty,
-			cmdStr,
-			cmdArgs,
-			memLimit,
-			cpuset,
-			cpuShare,
-			volume,
-			detach,
-			name,
-			envs,
-			net,
-			ports,
-		); err != nil {
-			log.Fatal(err)
+		resConfig := &subsystem.ResourceConfig{
+			MemoryLimit: mem,
+			CpuShare:    cpushare,
+			CpuSet:      cpuset,
 		}
+
+		runtime.Run(tty, detach, args, resConfig, volume, name, envs, net, ports)
+		return nil
 	},
 }
 
 func init() {
-	// -ti / --ti
-	RunCommand.Flags().BoolVarP(&flagTty, "ti", "t", false, "enable tty (allocate a pseudo-TTY)")
-
-	// --mem
-	RunCommand.Flags().StringVar(&flagMemory, "mem", "", "memory limit (e.g. 512m, 1g)")
-
-	// --cpuset
-	RunCommand.Flags().StringVar(&flagCpuset, "cpuset", "", "cpuset CPUs (e.g. 0-3,0,2)")
-
-	// --cpushare
-	RunCommand.Flags().StringVar(&flagCpuShare, "cpushare", "", "cpu shares (relative weight)")
-
-	// -v / --v   （這裡只允許一次，如需 -v 多次請改成 StringSliceVar）
-	RunCommand.Flags().StringVarP(&flagVolume, "v", "v", "", "bind mount (e.g. /host/path:/container/path)")
-
-	// -d / --detach
-	RunCommand.Flags().BoolVarP(&flagDetach, "detach", "d", false, "run container in background and print container ID")
-
-	// --name
-	RunCommand.Flags().StringVar(&flagName, "name", "", "assign a name to the container")
-
-	// -e / --env   （可重複）
-	RunCommand.Flags().StringSliceVarP(&flagEnvs, "e", "e", nil, "set environment variables (can be repeated)")
-
-	// --net
-	RunCommand.Flags().StringVar(&flagNetwork, "net", "default", "container network (bridge, host, none, ...)")
-
-	// -p / --publish   （可重複）
-	RunCommand.Flags().StringSliceVarP(&flagPorts, "p", "p", nil, "publish a container's port(s) to the host (can be repeated)")
-
+	RunCmd.Flags().BoolP("ti", "t", false, "enable tty")
+	RunCmd.Flags().Bool("d", false, "detach container")
+	RunCmd.Flags().String("cpushare", "", "cpu share limit")
+	RunCmd.Flags().String("mem", "", "memory limit")
+	RunCmd.Flags().String("cpuset", "", "cpuset limit")
+	RunCmd.Flags().StringP("v", "", "", "volume")
+	RunCmd.Flags().String("name", "", "container name")
+	RunCmd.Flags().StringSliceP("e", "", nil, "set environment")
+	RunCmd.Flags().String("net", "", "container network")
+	RunCmd.Flags().StringSliceP("p", "", nil, "port mapping")
 }

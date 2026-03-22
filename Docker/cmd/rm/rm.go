@@ -1,4 +1,4 @@
-package commit
+package rm
 
 import (
 	"mini-docker/Docker/runtime"
@@ -6,11 +6,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var CommitCmd = &cobra.Command{
-	Use:   "commit",
+var RmCmd = &cobra.Command{
+	Use:   "commit CONTAINER",
 	Short: "commit a container into image",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runtime.CommitContainer(args[0])
+		return runtime.RemoveContainer(args[0])
 	},
 }

@@ -1,0 +1,3 @@
+package nsenter
+
+import "C"

@@ -1,6 +1,16 @@
 package cmd
 
 import (
+	"mini-docker/Docker/cmd/Init"
+	"mini-docker/Docker/cmd/commit"
+	"mini-docker/Docker/cmd/exec"
+	"mini-docker/Docker/cmd/log"
+	"mini-docker/Docker/cmd/network"
+	"mini-docker/Docker/cmd/ps"
+	"mini-docker/Docker/cmd/rm"
+	"mini-docker/Docker/cmd/run"
+	"mini-docker/Docker/cmd/stop"
+
 	"github.com/spf13/cobra"
 )
 
@@ -19,6 +29,16 @@ func Execute() error {
 }
 
 func init() {
-	rootCmd.AddCommand()
-	rootCmd.AddCommand()
+
+	rootCmd.AddCommand(
+		Init.InitCmd,
+		run.RunCmd,
+		log.LogCmd,
+		stop.StopCmd,
+		commit.CommitCmd,
+		rm.RmCmd,
+		ps.PsCmd,
+		exec.ExecCmd,
+		network.NetworkCmd,
+	)
 }

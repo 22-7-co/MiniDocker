@@ -22,13 +22,11 @@ func (m MemorySubsystem) Set(cgroupName string, res *ResourceConfig) error {
 		return err
 	}
 	log.Infof("%s cgroup path: %s", m.Name(), cgroupName)
-	if err != nil {
-		return err
-	}
 
-	// 写入配置文件
-	if err := os.WriteFile(cgroupPath, []byte(res.MemoryLimit), 0644); err != nil {
-		return err
+	// 将资源限制写入
+	limitFilePath := path.Join(cgroupPath, "memory.limit_in_bytes")
+	if err := os.WriteFile(limitFilePath, []byte(res.MemoryLimit), 0644); err != nil {
+		return fmt.Errorf("set memory limit failed: %v", err)
 	}
 	return nil
 }
@@ -39,10 +37,7 @@ func (m MemorySubsystem) Apply(cgroupName string, pid int) error {
 		return err
 	}
 	log.Infof("%s cgroup path: %s", m.Name(), cgroupName)
-	if err != nil {
-		return err
-	}
-	log.Infof("%s cgroup path: %s", m.Name(), cgroupPath)
+
 	// 将 PID 加入当前 Cgroup
 	limitFilePath := path.Join(cgroupPath, "tasks")
 	if err := os.WriteFile(limitFilePath, []byte(strconv.Itoa(pid)), 0644); err != nil {

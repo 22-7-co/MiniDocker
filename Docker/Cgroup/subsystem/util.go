@@ -29,6 +29,9 @@ func GetCgroupPath(subsystem string, cgroupName string) (string, error) {
 	return cgroupPath, nil
 }
 
+/*
+在/proc/self/mountinfo中查找某个 cgroup 子系统的挂载信息
+*/
 func FindCgroupMountPoint(subsystem string) (string, error) {
 	f, err := os.Open("/proc/self/mountinfo")
 	if err != nil {
@@ -39,7 +42,21 @@ func FindCgroupMountPoint(subsystem string) (string, error) {
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		txt := scanner.Text()
-		fields := strings.Split(txt, " ")
+		fields := strings.SplitN(txt, " ", 5)
+		if len(fields) < 5 {
+			continue
+		}
+
+		mountPoint := fields[4]
+		options := fields[len(fields)-1] // 最后是选项
+
+		// cgroup v2 特征：类型是 cgroup2，或者选项包含 cgroup2
+		if strings.Contains(options, "cgroup2") || strings.HasPrefix(mountPoint, "/sys/fs/cgroup") {
+			// v2 统一挂载点，直接返回（不管 subsystem 是什么）
+			return "/sys/fs/cgroup", nil
+		}
+
+		// v1 原来的逻辑
 		log.Debugf("mount info txt fields: %s", fields)
 		for _, opt := range strings.Split(fields[len(fields)-1], ",") {
 			if opt == subsystem {
